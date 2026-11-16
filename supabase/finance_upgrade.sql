@@ -1,0 +1,11 @@
+-- FH Habibur Tech Finance Upgrade
+-- Database upgrade already applied in Supabase.
+-- This file is kept as the project migration record.
+
+-- Includes:
+-- 1. USD and BDT payment support
+-- 2. Campaign spend entries
+-- 3. Invoice numbering
+-- 4. Client due summary
+-- 5. Dollar wallet balance
+-- 6. Monthly finance summary
