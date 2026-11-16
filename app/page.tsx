@@ -1,3 +1,35 @@
+'use client';
+
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { LayoutDashboard, Users, Megaphone, Wallet, ChartNoAxesCombined, LogOut, Plus, Search, ShieldCheck, Receipt, DollarSign, TrendingDown, FileText } from 'lucide-react';
+import { supabase, supabaseReady } from '@/lib/supabase';
+
+type Client = { id: string; name: string; business_name: string | null; phone: string | null; status: string };
+type Campaign = { id: string; client_id: string; name: string; budget_usd: number; spent_usd: number; exchange_rate: number; status: string };
+type Payment = { id: string; client_id: string; amount_bdt: number; payment_date: string; method: string; reference: string | null };
+type Profile = { full_name: string | null; role: 'admin' | 'accountant' | 'employee' };
+type Expense = { id: string; title: string; category: string; amount_bdt: number; expense_date: string };
+type DollarTx = { id: string; transaction_type: string; amount_usd: number; exchange_rate: number; amount_bdt: number; transaction_date: string; client_id: string | null; notes: string | null };
+type Invoice = { id: string; invoice_number: string; client_id: string; issue_date: string; due_date: string | null; subtotal_bdt: number; status: string };
+
+const bdt = (n: number) => '৳' + Number(n || 0).toLocaleString('en-BD', { maximumFractionDigits: 2 });
+const usd = (n: number) => '$' + Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+const today = () => new Date().toISOString().slice(0, 10);
+
+export default function Home() {
+  const [session, setSession] = useState<any>(null), [profile, setProfile] = useState<Profile | null>(null);
+  const [clients, setClients] = useState<Client[]>([]), [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]), [expenses, setExpenses] = useState<Expense[]>([]);
+  const [dollarTx, setDollarTx] = useState<DollarTx[]>([]), [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [tab, setTab] = useState('Dashboard'), [loading, setLoading] = useState(true), [error, setError] = useState('');
+  const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [signup, setSignup] = useState(false);
+  const [search, setSearch] = useState(''), [showForm, setShowForm] = useState(false);
+  const [clientForm, setClientForm] = useState({ name: '', business_name: '', phone: '' });
+  const [campaignForm, setCampaignForm] = useState({ client_id: '', name: '', budget_usd: '', exchange_rate: '125' });
+  const [paymentForm, setPaymentForm] = useState({ client_id: '', amount_bdt: '', method: 'Bank transfer', reference: '' });
+  const [expenseForm, setExpenseForm] = useState({ title: '', category: 'Other', amount_bdt: '', expense_date: today() });
+  const [dollarForm, setDollarForm] = useState({ transaction_type: 'purchase', amount_usd: '', exchange_rate: '125', client_id: '', notes: '' });
+  const [invoiceForm, setInvoiceForm] = useState({ invoice_number: '', client_id: '', issue_date: today(), due_date: '', subtotal_bdt: '', notes: '' });
   const [spendForm, setSpendForm] = useState({ campaign_id: '', spent_usd: '' });
 
   useEffect(() => {
