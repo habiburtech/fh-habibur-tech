@@ -53,11 +53,20 @@ where id=(select id from auth.users where email='ACCOUNTANT_EMAIL');
 - Ads budget is not agency revenue. Separate ad spend, agency service fees and operating expenses.
 - This starter does not yet calculate invoice-based due balances or reconciled net profit. Do not treat collections as profit.
 
-## Next build milestones
-- Campaign spend entries, start/end dates, platform and objective editing.
-- Invoice generation, due ledger and receipt PDF.
-- Expense and dollar-wallet transaction UI.
-- Admin team-management screen and granular employee permissions.
-- Audit-log UI, CSV/PDF exports, backups and automated tests.
+## Invoice and team access update
+
+The current app includes an itemized BDT invoice screen. Finance users can create invoices with line items, view saved invoices, and print or save an invoice as PDF from the browser print dialog. Invoice totals feed the existing client due summary. The app does not send invoice emails automatically; download/print the PDF and send it through your normal email or WhatsApp workflow.
+
+The Admin-only Team Access screen lists registered accounts and lets an Admin assign the `employee`, `accountant` or `admin` role. Staff must first create their own account from the login screen; new accounts default to Employee. Role changes are applied after the user signs out and signs in again. This screen does not send invitation emails or suspend Auth accounts.
+
+### Required additive database migration
+After the current v3 finance schema is installed, run `supabase/migrations/20261120_invoice_team_access.sql` once in Supabase SQL Editor. It adds `profiles.email`, backfills existing emails from Supabase Auth, and keeps emails synced for new registrations and Auth email changes. It does not delete or rewrite client, campaign, payment, invoice, spend or purchase data.
+
+Existing Admin profile RLS policies must remain enabled: Admin may read/update profiles; non-admin users may read only their own profile. The Admin screen relies on that policy boundary.
+
+## Remaining milestones
+- Invoice email delivery and client-facing invoice portal.
+- Granular permission settings and safe Auth-user suspension.
+- Audit-log UI, CSV exports, backups and automated tests.
 
 Before using for real financial records, test each role with separate accounts, verify all RLS policies, enable email confirmation and MFA for Admin, and reconcile values against actual bank/ad-platform statements.
