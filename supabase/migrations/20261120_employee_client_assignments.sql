@@ -79,9 +79,12 @@ CREATE POLICY "assigned clients read policy"
   FOR SELECT TO authenticated
   USING (
     public.is_admin_or_accountant()
-    OR EXISTS (
-      SELECT 1 FROM public.employee_client_assignments a
-      WHERE a.employee_id = auth.uid() AND a.client_id = clients.id
+    OR (
+      public.is_approved_user()
+      AND EXISTS (
+        SELECT 1 FROM public.employee_client_assignments a
+        WHERE a.employee_id = auth.uid() AND a.client_id = clients.id
+      )
     )
   );
 
@@ -101,9 +104,12 @@ CREATE POLICY "assigned campaigns read policy"
   FOR SELECT TO authenticated
   USING (
     public.is_admin_or_accountant()
-    OR EXISTS (
-      SELECT 1 FROM public.employee_client_assignments a
-      WHERE a.employee_id = auth.uid() AND a.client_id = campaigns.client_id
+    OR (
+      public.is_approved_user()
+      AND EXISTS (
+        SELECT 1 FROM public.employee_client_assignments a
+        WHERE a.employee_id = auth.uid() AND a.client_id = campaigns.client_id
+      )
     )
   );
 
@@ -114,9 +120,12 @@ CREATE POLICY "assigned campaigns insert policy"
     created_by = auth.uid()
     AND (
       public.is_admin_or_accountant()
-      OR EXISTS (
-        SELECT 1 FROM public.employee_client_assignments a
-        WHERE a.employee_id = auth.uid() AND a.client_id = campaigns.client_id
+      OR (
+        public.is_approved_user()
+        AND EXISTS (
+          SELECT 1 FROM public.employee_client_assignments a
+          WHERE a.employee_id = auth.uid() AND a.client_id = campaigns.client_id
+        )
       )
     )
   );
