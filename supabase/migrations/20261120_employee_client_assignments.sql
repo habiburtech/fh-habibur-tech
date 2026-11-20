@@ -21,33 +21,17 @@ CREATE INDEX IF NOT EXISTS employee_client_assignments_client_idx
 
 ALTER TABLE public.employee_client_assignments ENABLE ROW LEVEL SECURITY;
 
+GRANT SELECT ON public.employee_client_assignments TO authenticated;
+
 DROP POLICY IF EXISTS "admin read employee client assignments" ON public.employee_client_assignments;
-CREATE POLICY "admin read employee client assignments"
+DROP POLICY IF EXISTS "employee read own client assignments" ON public.employee_client_assignments;
+CREATE POLICY "employee read own client assignments"
   ON public.employee_client_assignments
   FOR SELECT TO authenticated
-  USING (public.current_user_role() = 'admin'::public.app_role);
-
--- SECURITY DEFINER helper reads the assignment table without causing RLS recursion.
-CREATE OR REPLACE FUNCTION public.employee_has_client_access(p_client_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.employee_client_assignments a
-    JOIN public.profiles p ON p.id = a.employee_id
-    WHERE a.employee_id = auth.uid()
-      AND a.client_id = p_client_id
-      AND p.role = 'employee'::public.app_role
-      AND p.approval_status = 'approved'
+  USING (
+    employee_id = auth.uid()
+    OR public.current_user_role() = 'admin'::public.app_role
   );
-$$;
-
-REVOKE ALL ON FUNCTION public.employee_has_client_access(uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.employee_has_client_access(uuid) TO authenticated;
 
 -- Atomic Admin-only assignment replacement.
 CREATE OR REPLACE FUNCTION public.admin_set_employee_clients(
@@ -95,7 +79,10 @@ CREATE POLICY "assigned clients read policy"
   FOR SELECT TO authenticated
   USING (
     public.is_admin_or_accountant()
-    OR public.employee_has_client_access(id)
+    OR EXISTS (
+      SELECT 1 FROM public.employee_client_assignments a
+      WHERE a.employee_id = auth.uid() AND a.client_id = clients.id
+    )
   );
 
 CREATE POLICY "finance insert clients"
@@ -114,7 +101,10 @@ CREATE POLICY "assigned campaigns read policy"
   FOR SELECT TO authenticated
   USING (
     public.is_admin_or_accountant()
-    OR public.employee_has_client_access(client_id)
+    OR EXISTS (
+      SELECT 1 FROM public.employee_client_assignments a
+      WHERE a.employee_id = auth.uid() AND a.client_id = campaigns.client_id
+    )
   );
 
 CREATE POLICY "assigned campaigns insert policy"
@@ -124,7 +114,10 @@ CREATE POLICY "assigned campaigns insert policy"
     created_by = auth.uid()
     AND (
       public.is_admin_or_accountant()
-      OR public.employee_has_client_access(client_id)
+      OR EXISTS (
+        SELECT 1 FROM public.employee_client_assignments a
+        WHERE a.employee_id = auth.uid() AND a.client_id = campaigns.client_id
+      )
     )
   );
 
