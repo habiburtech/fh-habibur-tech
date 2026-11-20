@@ -56,7 +56,8 @@ export default function Home(){
    const amountUsd=Number(spendForm.amount_usd);
    if(!lot){setError('Select a valid USD purchase lot.');return;}
    if(!Number.isFinite(amountUsd)||amountUsd<=0){setError('Spent USD must be greater than zero.');return;}
-   if(amountUsd>Number(lot.remaining_usd)){setError('Insufficient USD in this lot. Available: 
+   if(amountUsd>Number(lot.remaining_usd)){setError('Insufficient USD in selected lot.');return;}
+   r=await supabase.from('campaign_spend_entries').insert({campaign_id:spendForm.campaign_id,purchase_lot_id:spendForm.purchase_lot_id,amount_usd:amountUsd,exchange_rate:Number(lot.purchase_rate),client_rate:Number(spendForm.client_rate),service_charge_type:spendForm.service_charge_type,service_charge_value:Number(spendForm.service_charge_value),spend_date:spendForm.spend_date,platform_reference:spendForm.platform_reference||null,notes:spendForm.notes||null,created_by:session.user.id});
    if(!r.error){const newSpent=Number(c.spent_usd)+Number(spendForm.amount_usd);const up=await supabase.from('campaigns').update({spent_usd:newSpent}).eq('id',c.id);if(up.error)setError('Spend saved, but campaign total update failed: '+up.error.message);}
   }
   if(tab==='Payments')r=await supabase.from('payments').insert({client_id:paymentForm.client_id,amount_bdt:Number(paymentForm.amount_bdt),payment_date:paymentForm.payment_date,method:paymentForm.method,reference:paymentForm.reference||null,created_by:session.user.id});
