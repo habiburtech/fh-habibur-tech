@@ -64,6 +64,17 @@ After the current v3 finance schema is installed, run `supabase/migrations/20261
 
 Existing Admin profile RLS policies must remain enabled: Admin may read/update profiles; non-admin users may read only their own profile. The Admin screen relies on that policy boundary.
 
+## Employee client assignment access
+
+Employees do not automatically see every client after approval. Admin must assign specific clients from the Team Access screen. The Employee's Client list and Campaign list are filtered by those assignments; Campaign access follows the assigned Client automatically. Employees cannot create new Clients. They may create Campaigns only for clients assigned to them.
+
+Admin/Accountant retain full Client and Campaign visibility. Supabase Row Level Security enforces the same rules at the database level, so a direct API query cannot bypass the assignment list.
+
+### Required additive database migration
+After the Admin approval migration has been run, run `supabase/migrations/20261120_employee_client_assignments.sql` in Supabase SQL Editor. It creates the assignment table and Admin-only assignment function, then changes Client/Campaign RLS policies. Existing business records are preserved. Before this migration is active, do not rely on Employee Client/Campaign views as access-filtered.
+
+After merging and deploying, go to **Team Access** as Admin, select the Client checkboxes under each Employee, and press **Save assigned clients**. Removing a checkmark and saving revokes access to that Client and its Campaigns.
+
 ## Remaining milestones
 - Invoice email delivery and client-facing invoice portal.
 - Granular permission settings and safe Auth-user suspension.
