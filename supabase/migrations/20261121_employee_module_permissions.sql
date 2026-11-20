@@ -227,8 +227,8 @@ BEGIN
 
   -- The spend entry form needs to select a purchase lot. This is an explicit
   -- disclosure of the company USD wallet and must also be approved by Admin.
-  IF v_campaign_spend = 'manage' AND v_dollar_purchases = 'none' THEN
-    RAISE EXCEPTION 'Campaign Spend Manage requires at least View Only access to Dollar Purchases.';
+  IF v_campaign_spend = 'manage' AND v_dollar_purchases <> 'manage' THEN
+    RAISE EXCEPTION 'Campaign Spend Manage requires Manage access to Dollar Purchases so the selected USD lot can be consumed safely.';
   END IF;
 
   -- Client Due is calculated from campaign billing, invoices and payments.
@@ -572,6 +572,9 @@ DROP POLICY IF EXISTS "approved finance read invoices" ON public.invoices;
 DROP POLICY IF EXISTS "approved finance manage invoices" ON public.invoices;
 DROP POLICY IF EXISTS "finance read invoices" ON public.invoices;
 DROP POLICY IF EXISTS "finance manage invoices" ON public.invoices;
+CREATE POLICY "finance delete invoices"
+  ON public.invoices FOR DELETE TO authenticated
+  USING (public.is_admin_or_accountant());
 CREATE POLICY "module permission invoices read"
   ON public.invoices FOR SELECT TO authenticated
   USING (
@@ -630,6 +633,9 @@ DROP POLICY IF EXISTS "approved finance read invoice items" ON public.invoice_it
 DROP POLICY IF EXISTS "approved finance manage invoice items" ON public.invoice_items;
 DROP POLICY IF EXISTS "finance read invoice items" ON public.invoice_items;
 DROP POLICY IF EXISTS "finance manage invoice items" ON public.invoice_items;
+CREATE POLICY "finance delete invoice items"
+  ON public.invoice_items FOR DELETE TO authenticated
+  USING (public.is_admin_or_accountant());
 CREATE POLICY "module permission invoice items read"
   ON public.invoice_items FOR SELECT TO authenticated
   USING (
