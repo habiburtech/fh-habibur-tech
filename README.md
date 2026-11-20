@@ -75,9 +75,20 @@ After the Admin approval migration has been run, run `supabase/migrations/202611
 
 After merging and deploying, go to **Team Access** as Admin, select the Client checkboxes under each Employee, and press **Save assigned clients**. Removing a checkmark and saving revokes access to that Client and its Campaigns.
 
+## Employee module permissions
+
+Admin can set each Employee's access to Dashboard, Clients, Campaigns, Campaign Spend, Dollar Purchases, Client Due, Invoices, Payments, Expenses and Reports as **No Access**, **View Only** or **Manage**. Supabase RLS enforces the module permission and assigned-client scope; hiding a menu item is not the security boundary.
+
+### Required additive database migration
+After the Admin approval and Employee client-assignment migrations, run `supabase/migrations/20261121_employee_module_permissions.sql` once in Supabase SQL Editor. It seeds the agreed default permissions for existing and new Employees, adds the Admin-only permission-save RPC, and replaces the relevant RLS policies. Existing business records are preserved.
+
+Default Employee access is Dashboard/View, Clients/View, Campaigns/Manage, Campaign Spend/View, Client Due/View, Invoices/View and Payments/View. Dollar Purchases, Expenses and Reports start as No Access. Reports granted to an Employee show only assigned-client aggregates; company-wide expenses and profit remain hidden. Dollar Purchases and Expenses expose company-wide financial information. Campaign Spend Manage requires Dollar Purchases Manage because an Employee who records spend must consume a selected USD lot.
+
+After both the migration and app deployment are active, open **Team Access** as Admin. Under each Employee, first save Client assignments, then select the required permission for each module and press **Save module permissions**. The Employee should refresh or sign in again to see the updated menu. Accountants retain their existing Finance-role access; Team Access remains Admin-only.
+
 ## Remaining milestones
 - Invoice email delivery and client-facing invoice portal.
-- Granular permission settings and safe Auth-user suspension.
+- Safe Auth-user suspension.
 - Audit-log UI, CSV exports, backups and automated tests.
 
 Before using for real financial records, test each role with separate accounts, verify all RLS policies, enable email confirmation and MFA for Admin, and reconcile values against actual bank/ad-platform statements.
