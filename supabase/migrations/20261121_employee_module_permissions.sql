@@ -201,6 +201,7 @@ BEGIN
      )
      OR p_permissions->>'dashboard' NOT IN ('none','view')
      OR p_permissions->>'client_due' NOT IN ('none','view')
+     OR p_permissions->>'clients' NOT IN ('none','view')
      OR p_permissions->>'reports' NOT IN ('none','view') THEN
     RAISE EXCEPTION 'Invalid permission set. Choose No Access, View Only, or Manage for each available module.';
   END IF;
@@ -448,6 +449,11 @@ CREATE POLICY "module permission campaign spend read"
     )
   );
 
+CREATE POLICY "finance maintain campaign spend"
+  ON public.campaign_spend_entries FOR ALL TO authenticated
+  USING (public.is_admin_or_accountant())
+  WITH CHECK (public.is_admin_or_accountant());
+
 CREATE POLICY "module permission campaign spend insert"
   ON public.campaign_spend_entries FOR INSERT TO authenticated
   WITH CHECK (
@@ -575,6 +581,20 @@ DROP POLICY IF EXISTS "finance manage invoices" ON public.invoices;
 CREATE POLICY "finance delete invoices"
   ON public.invoices FOR DELETE TO authenticated
   USING (public.is_admin_or_accountant());
+
+CREATE POLICY "module permission invoices delete"
+  ON public.invoices FOR DELETE TO authenticated
+  USING (
+    public.has_module_access('invoices','manage')
+    AND (
+      public.is_admin_or_accountant()
+      OR EXISTS (
+        SELECT 1 FROM public.employee_client_assignments a
+        WHERE a.employee_id = auth.uid()
+          AND a.client_id = invoices.client_id
+      )
+    )
+  );
 CREATE POLICY "module permission invoices read"
   ON public.invoices FOR SELECT TO authenticated
   USING (
@@ -636,6 +656,16 @@ DROP POLICY IF EXISTS "finance manage invoice items" ON public.invoice_items;
 CREATE POLICY "finance delete invoice items"
   ON public.invoice_items FOR DELETE TO authenticated
   USING (public.is_admin_or_accountant());
+
+CREATE POLICY "module permission invoice items delete"
+  ON public.invoice_items FOR DELETE TO authenticated
+  USING (
+    public.has_module_access('invoices','manage')
+    AND EXISTS (
+      SELECT 1 FROM public.invoices i
+      WHERE i.id = invoice_items.invoice_id
+    )
+  );
 CREATE POLICY "module permission invoice items read"
   ON public.invoice_items FOR SELECT TO authenticated
   USING (
