@@ -8,13 +8,38 @@ type Campaign={id:string;client_id:string;name:string;budget_usd:number;spent_us
 type Payment={id:string;client_id:string;amount_bdt:number;payment_date:string;method:string;reference:string|null};
 type Expense={id:string;title:string;category:string;amount_bdt:number;expense_date:string};
 type Lot={id:string;purchase_date:string;vendor:string|null;amount_usd:number;remaining_usd:number;purchase_rate:number};
-type Spend={id:string;campaign_id:string;purchase_lot_id:string;amount_usd:number;client_rate:number;service_charge_type:string;service_charge_value:number;spend_date:string;ad_cost_bdt:number;service_charge_bdt:number;client_bill_bdt:number};
+type Spend={id:string;campaign_id:string;purchase_lot_id:string;amount_usd:number;exchange_rate:number;client_rate:number;service_charge_type:string;service_charge_value:number;spend_date:string;ad_cost_bdt:number;service_charge_bdt:number;client_bill_bdt:number};
 type Due={client_id:string;client_name:string;total_billed_bdt:number;paid_bdt:number;due_bdt:number;advance_bdt:number};
 type Monthly={month:string;campaign_client_billed_bdt:number;service_revenue_bdt:number;fx_margin_bdt:number;actual_ad_cost_bdt:number;operating_expenses_bdt:number;net_profit_bdt:number};
 type Invoice={id:string;invoice_number:string;client_id:string;issue_date:string;due_date:string|null;subtotal_bdt:number;status:string;notes:string|null};
 type InvoiceItem={id:string;invoice_id:string;description:string;quantity:number;unit_price_bdt:number};
 type TeamMember={id:string;full_name:string|null;email:string|null;role:'admin'|'accountant'|'employee';approval_status:'pending'|'approved'|'rejected'|'suspended';created_at:string};
 type Profile={full_name:string|null;role:'admin'|'accountant'|'employee';approval_status:'pending'|'approved'|'rejected'|'suspended'};
+type ModuleKey='dashboard'|'clients'|'campaigns'|'campaign_spend'|'dollar_purchases'|'client_due'|'invoices'|'payments'|'expenses'|'reports';
+type ModuleAccess='none'|'view'|'manage';
+type EmployeeMonthly={month:string;campaign_client_billed_bdt:number;service_revenue_bdt:number;fx_margin_bdt:number;actual_ad_cost_bdt:number};
+const MODULES=[
+ {key:'dashboard',label:'Dashboard',scope:'Employee workspace overview',manageable:false},
+ {key:'clients',label:'Clients',scope:'Admin-assigned clients only',manageable:true},
+ {key:'campaigns',label:'Campaigns',scope:'Campaigns for assigned clients only',manageable:true},
+ {key:'campaign_spend',label:'Campaign Spend',scope:'Spend records for assigned clients only',manageable:true},
+ {key:'dollar_purchases',label:'Dollar Purchases',scope:'Company-wide USD wallet and purchase lots',manageable:true},
+ {key:'client_due',label:'Client Due',scope:'Due summary for assigned clients only',manageable:false},
+ {key:'invoices',label:'Invoices',scope:'Invoices for assigned clients only',manageable:true},
+ {key:'payments',label:'Payments',scope:'Payments for assigned clients only',manageable:true},
+ {key:'expenses',label:'Expenses',scope:'Company-wide operating expenses',manageable:true},
+ {key:'reports',label:'Reports',scope:'Monthly aggregates for assigned clients only',manageable:false}
+] as const;
+const DEFAULT_MODULE_PERMISSIONS:Record<ModuleKey,ModuleAccess>={
+ dashboard:'view',clients:'view',campaigns:'manage',campaign_spend:'view',
+ dollar_purchases:'none',client_due:'view',invoices:'view',payments:'view',
+ expenses:'none',reports:'none'
+};
+const MODULE_KEY_BY_LABEL:Record<string,ModuleKey>={
+ Dashboard:'dashboard',Clients:'clients',Campaigns:'campaigns','Campaign Spend':'campaign_spend',
+ 'Dollar Purchases':'dollar_purchases','Client Due':'client_due',Invoices:'invoices',
+ Payments:'payments',Expenses:'expenses',Reports:'reports'
+};
 const bdt=(n:number)=>'৳'+Number(n||0).toLocaleString('en-BD',{maximumFractionDigits:2});
 const usd=(n:number)=>'$'+Number(n||0).toLocaleString('en-US',{maximumFractionDigits:2});
 const today=()=>new Date().toISOString().slice(0,10);
@@ -24,6 +49,10 @@ export default function Home(){
  const [clients,setClients]=useState<Client[]>([]),[campaigns,setCampaigns]=useState<Campaign[]>([]),[payments,setPayments]=useState<Payment[]>([]),[expenses,setExpenses]=useState<Expense[]>([]),[lots,setLots]=useState<Lot[]>([]),[spends,setSpends]=useState<Spend[]>([]),[dues,setDues]=useState<Due[]>([]),[monthly,setMonthly]=useState<Monthly[]>([]);
  const [invoices,setInvoices]=useState<Invoice[]>([]),[invoiceItems,setInvoiceItems]=useState<InvoiceItem[]>([]),[teamMembers,setTeamMembers]=useState<TeamMember[]>([]);
  const [clientAssignmentDrafts,setClientAssignmentDrafts]=useState<Record<string,string[]>>({}),[savedClientAssignments,setSavedClientAssignments]=useState<Record<string,string[]>>({});
+ const [myModulePermissions,setMyModulePermissions]=useState<Record<ModuleKey,ModuleAccess>>({...DEFAULT_MODULE_PERMISSIONS});
+ const [modulePermissionDrafts,setModulePermissionDrafts]=useState<Record<string,Record<ModuleKey,ModuleAccess>>>({});
+ const [savedModulePermissions,setSavedModulePermissions]=useState<Record<string,Record<ModuleKey,ModuleAccess>>>({});
+ const [employeeMonthly,setEmployeeMonthly]=useState<EmployeeMonthly[]>([]);
  const [tab,setTab]=useState('Dashboard'),[loading,setLoading]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[signup,setSignup]=useState(false),[search,setSearch]=useState(''),[showForm,setShowForm]=useState(false);
  const [clientForm,setClientForm]=useState({name:'',business_name:'',phone:'',default_service_charge_type:'percent',default_service_charge_value:'0'});
@@ -37,6 +66,9 @@ export default function Home(){
  const [selectedInvoiceId,setSelectedInvoiceId]=useState('');
  const [roleChanges,setRoleChanges]=useState<Record<string,TeamMember['role']>>({}),[approvalChanges,setApprovalChanges]=useState<Record<string,TeamMember['approval_status']>>({});
  const finance=profile?.role==='admin'||profile?.role==='accountant';
+ const moduleAccess=(key:ModuleKey):ModuleAccess=>finance?'manage':myModulePermissions[key]||'none';
+ const canView=(key:ModuleKey)=>moduleAccess(key)==='view'||moduleAccess(key)==='manage';
+ const canManage=(key:ModuleKey)=>moduleAccess(key)==='manage';
  useEffect(()=>{if(!supabase){setLoading(false);return;}supabase.auth.getSession().then(({data})=>{setSession(data.session);if(data.session)void load(data.session.user.id);else setLoading(false)});const {data:{subscription}}=supabase.auth.onAuthStateChange((_e,s)=>{setSession(s);if(s)void load(s.user.id);else{setProfile(null);setClients([]);setCampaigns([]);setPayments([]);setExpenses([]);setLots([]);setSpends([]);setDues([]);setMonthly([]);setInvoices([]);setInvoiceItems([]);setTeamMembers([]);setLoading(false)}});return()=>subscription.unsubscribe()},[]);
  async function load(uid:string){if(!supabase)return;setLoading(true);setError('');
   const p=await supabase.from('profiles').select('full_name,role,approval_status').eq('id',uid).single();if(p.error){setProfile(null);setError('Access status could not be verified. Please contact the administrator.');setLoading(false);return;}setProfile(p.data as Profile);
