@@ -70,34 +70,90 @@ export default function Home(){
  const canView=(key:ModuleKey)=>moduleAccess(key)==='view'||moduleAccess(key)==='manage';
  const canManage=(key:ModuleKey)=>moduleAccess(key)==='manage';
  useEffect(()=>{if(!supabase){setLoading(false);return;}supabase.auth.getSession().then(({data})=>{setSession(data.session);if(data.session)void load(data.session.user.id);else setLoading(false)});const {data:{subscription}}=supabase.auth.onAuthStateChange((_e,s)=>{setSession(s);if(s)void load(s.user.id);else{setProfile(null);setClients([]);setCampaigns([]);setPayments([]);setExpenses([]);setLots([]);setSpends([]);setDues([]);setMonthly([]);setInvoices([]);setInvoiceItems([]);setTeamMembers([]);setLoading(false)}});return()=>subscription.unsubscribe()},[]);
- async function load(uid:string){if(!supabase)return;setLoading(true);setError('');
-  const p=await supabase.from('profiles').select('full_name,role,approval_status').eq('id',uid).single();if(p.error){setProfile(null);setError('Access status could not be verified. Please contact the administrator.');setLoading(false);return;}setProfile(p.data as Profile);
-  if(p.data.approval_status!=='approved'){setClients([]);setCampaigns([]);setPayments([]);setExpenses([]);setLots([]);setSpends([]);setDues([]);setMonthly([]);setInvoices([]);setInvoiceItems([]);setTeamMembers([]);setLoading(false);return;}
-  const [c,a]=await Promise.all([supabase.from('clients').select('*').order('created_at',{ascending:false}),supabase.from('campaigns').select('*').order('created_at',{ascending:false})]);
-  if(c.error)setError(c.error.message);else setClients(c.data||[]);if(a.error)setError(a.error.message);else setCampaigns(a.data||[]);
-  if(p.data.role==='admin'||p.data.role==='accountant'){
-   const [pm,ex,lo,sp,due,mon,inv,itm]=await Promise.all([
-    supabase.from('payments').select('*').order('payment_date',{ascending:false}),supabase.from('expenses').select('*').order('expense_date',{ascending:false}),
-    supabase.from('dollar_purchase_lots').select('*').order('purchase_date',{ascending:false}),supabase.from('campaign_spend_entries').select('*').order('spend_date',{ascending:false}),
-    supabase.from('client_due_summary').select('*').order('client_name'),supabase.from('finance_monthly_accrual_summary').select('*').order('month',{ascending:false}),
-    supabase.from('invoices').select('*').order('issue_date',{ascending:false}),supabase.from('invoice_items').select('*')
-   ]);
-   if(pm.error)setError(pm.error.message);else setPayments(pm.data||[]);if(ex.error)setError(ex.error.message);else setExpenses(ex.data||[]);
-   if(lo.error)setError(lo.error.message);else setLots(lo.data||[]);if(sp.error)setError(sp.error.message);else setSpends(sp.data||[]);
-   if(due.error)setError(due.error.message);else setDues(due.data||[]);if(mon.error)setError(mon.error.message);else setMonthly(mon.data||[]);
-   if(inv.error)setError(inv.error.message);else setInvoices(inv.data||[]);if(itm.error)setError(itm.error.message);else setInvoiceItems(itm.data||[]);
-   if(p.data.role==='admin'){
-    const [tm,ac]=await Promise.all([
-     supabase.from('profiles').select('id,email,full_name,role,approval_status,created_at').order('created_at',{ascending:false}),
-     supabase.from('employee_client_assignments').select('employee_id,client_id')
-    ]);
-    if(tm.error)setError(tm.error.message);else setTeamMembers((tm.data||[]) as TeamMember[]);
-    if(ac.error)setError(ac.error.message);else{
-     const assignmentMap:Record<string,string[]>={};
-     for(const row of (ac.data||[]) as {employee_id:string;client_id:string}[]){(assignmentMap[row.employee_id]??=[]).push(row.client_id)}
-     setClientAssignmentDrafts(assignmentMap);setSavedClientAssignments(assignmentMap);
-    }
+ async function load(uid:string){
+  if(!supabase)return;
+  setLoading(true);setError('');
+  const p=await supabase.from('profiles').select('full_name,role,approval_status').eq('id',uid).single();
+  if(p.error){
+   setProfile(null);setError('Access status could not be verified. Please contact the administrator.');setLoading(false);return;
+  }
+  setProfile(p.data as Profile);
+  if(p.data.approval_status!=='approved'){
+   setClients([]);setCampaigns([]);setPayments([]);setExpenses([]);setLots([]);setSpends([]);setDues([]);setMonthly([]);setEmployeeMonthly([]);setInvoices([]);setInvoiceItems([]);setTeamMembers([]);setLoading(false);return;
+  }
+
+  const isFinanceRole=p.data.role==='admin'||p.data.role==='accountant';
+  let activePermissions:Record<ModuleKey,ModuleAccess>={...DEFAULT_MODULE_PERMISSIONS};
+  if(isFinanceRole){
+   activePermissions={dashboard:'manage',clients:'manage',campaigns:'manage',campaign_spend:'manage',dollar_purchases:'manage',client_due:'manage',invoices:'manage',payments:'manage',expenses:'manage',reports:'manage'};
+  }else{
+   const mp=await supabase.from('employee_module_permissions').select('module_key,access_level').eq('employee_id',uid);
+   if(mp.error)setError('Employee module permissions could not be loaded. Apply the module-permissions database migration first: '+mp.error.message);
+   else for(const row of (mp.data||[]) as {module_key:ModuleKey;access_level:ModuleAccess}[]){
+    if(row.module_key in activePermissions)activePermissions[row.module_key]=row.access_level;
    }
+  }
+  setMyModulePermissions(activePermissions);
+
+  // Row Level Security returns only the module rows and assigned clients this
+  // signed-in account is permitted to read.
+  const [cl,ca,pm,ex,lo,sp,due,inv,itm]=await Promise.all([
+   supabase.from('clients').select('*').order('created_at',{ascending:false}),
+   supabase.from('campaigns').select('*').order('created_at',{ascending:false}),
+   supabase.from('payments').select('*').order('payment_date',{ascending:false}),
+   supabase.from('expenses').select('*').order('expense_date',{ascending:false}),
+   supabase.from('dollar_purchase_lots').select('*').order('purchase_date',{ascending:false}),
+   supabase.from('campaign_spend_entries').select('*').order('spend_date',{ascending:false}),
+   supabase.from('client_due_summary').select('*').order('client_name'),
+   supabase.from('invoices').select('*').order('issue_date',{ascending:false}),
+   supabase.from('invoice_items').select('*')
+  ]);
+  if(cl.error)setError(cl.error.message);else setClients(cl.data||[]);
+  if(ca.error)setError(ca.error.message);else setCampaigns(ca.data||[]);
+  if(pm.error)setError(pm.error.message);else setPayments(pm.data||[]);
+  if(ex.error)setError(ex.error.message);else setExpenses(ex.data||[]);
+  if(lo.error)setError(lo.error.message);else setLots(lo.data||[]);
+  if(sp.error)setError(sp.error.message);else setSpends(sp.data||[]);
+  if(due.error)setError(due.error.message);else setDues(due.data||[]);
+  if(inv.error)setError(inv.error.message);else setInvoices(inv.data||[]);
+  if(itm.error)setError(itm.error.message);else setInvoiceItems(itm.data||[]);
+
+  if(isFinanceRole){
+   const mon=await supabase.from('finance_monthly_accrual_summary').select('*').order('month',{ascending:false});
+   if(mon.error)setError(mon.error.message);else setMonthly(mon.data||[]);
+   setEmployeeMonthly([]);
+  }else if(activePermissions.reports!=='none'){
+   const mon=await supabase.rpc('employee_assigned_client_monthly_report');
+   if(mon.error)setError(mon.error.message);else setEmployeeMonthly((mon.data||[]) as EmployeeMonthly[]);
+   setMonthly([]);
+  }else{
+   setMonthly([]);setEmployeeMonthly([]);
+  }
+
+  if(p.data.role==='admin'){
+   const [tm,ac,mp]=await Promise.all([
+    supabase.from('profiles').select('id,email,full_name,role,approval_status,created_at').order('created_at',{ascending:false}),
+    supabase.from('employee_client_assignments').select('employee_id,client_id'),
+    supabase.from('employee_module_permissions').select('employee_id,module_key,access_level')
+   ]);
+   if(tm.error)setError(tm.error.message);else setTeamMembers((tm.data||[]) as TeamMember[]);
+   if(ac.error)setError(ac.error.message);else{
+    const assignmentMap:Record<string,string[]>={};
+    for(const row of (ac.data||[]) as {employee_id:string;client_id:string}[]){(assignmentMap[row.employee_id]??=[]).push(row.client_id)}
+    setClientAssignmentDrafts(assignmentMap);setSavedClientAssignments(assignmentMap);
+   }
+   if(mp.error)setError('Employee module permissions could not be loaded: '+mp.error.message);else{
+    const permissionMap:Record<string,Record<ModuleKey,ModuleAccess>>={};
+    for(const member of (tm.data||[]) as TeamMember[]){
+     if(member.role==='employee')permissionMap[member.id]={...DEFAULT_MODULE_PERMISSIONS};
+    }
+    for(const row of (mp.data||[]) as {employee_id:string;module_key:ModuleKey;access_level:ModuleAccess}[]){
+     if(permissionMap[row.employee_id]&&row.module_key in permissionMap[row.employee_id])permissionMap[row.employee_id][row.module_key]=row.access_level;
+    }
+    setModulePermissionDrafts(permissionMap);setSavedModulePermissions(permissionMap);
+   }
+  }else{
+   setTeamMembers([]);setModulePermissionDrafts({});setSavedModulePermissions({});
   }
   setLoading(false);
  }
