@@ -528,6 +528,10 @@ CREATE POLICY "module permission payments insert"
     )
   );
 
+CREATE POLICY "admin delete payments"
+  ON public.payments FOR DELETE TO authenticated
+  USING (public.current_user_role() = 'admin'::public.app_role);
+
 CREATE POLICY "module permission payments update"
   ON public.payments FOR UPDATE TO authenticated
   USING (
@@ -566,6 +570,10 @@ CREATE POLICY "module permission expenses insert"
     public.has_module_access('expenses','manage')
     AND created_by = auth.uid()
   );
+
+CREATE POLICY "finance delete expenses"
+  ON public.expenses FOR DELETE TO authenticated
+  USING (public.is_admin_or_accountant());
 
 CREATE POLICY "module permission expenses update"
   ON public.expenses FOR UPDATE TO authenticated
