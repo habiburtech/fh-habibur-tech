@@ -74,6 +74,8 @@ GRANT EXECUTE ON FUNCTION public.admin_set_employee_clients(uuid, uuid[]) TO aut
 -- Clients: Finance roles retain full visibility; Employees get assigned rows only.
 DROP POLICY IF EXISTS "approved staff read clients" ON public.clients;
 DROP POLICY IF EXISTS "approved staff add clients" ON public.clients;
+DROP POLICY IF EXISTS "assigned clients read policy" ON public.clients;
+DROP POLICY IF EXISTS "finance insert clients" ON public.clients;
 CREATE POLICY "assigned clients read policy"
   ON public.clients
   FOR SELECT TO authenticated
@@ -99,6 +101,8 @@ CREATE POLICY "finance insert clients"
 -- Campaigns: an Employee can read/create only campaigns under assigned clients.
 DROP POLICY IF EXISTS "approved staff read campaigns" ON public.campaigns;
 DROP POLICY IF EXISTS "approved staff create campaigns" ON public.campaigns;
+DROP POLICY IF EXISTS "assigned campaigns read policy" ON public.campaigns;
+DROP POLICY IF EXISTS "assigned campaigns insert policy" ON public.campaigns;
 CREATE POLICY "assigned campaigns read policy"
   ON public.campaigns
   FOR SELECT TO authenticated
