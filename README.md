@@ -86,6 +86,21 @@ Default Employee access is Dashboard/View, Clients/View, Campaigns/Manage, Campa
 
 After both the migration and app deployment are active, open **Team Access** as Admin. Under each Employee, first save Client assignments, then select the required permission for each module and press **Save module permissions**. The Employee should refresh or sign in again to see the updated menu. Accountants retain their existing Finance-role access; Team Access remains Admin-only.
 
+## Invoice payment allocation and automatic status
+
+Run `supabase/migrations/20261121_invoice_payment_allocation.sql` once **after** the Employee module-permissions migration. It creates the invoice-payment allocation ledger and backfills existing client payments into that client's oldest open invoices (FIFO). Existing payments and invoices are preserved.
+
+When a new payment is recorded, it is automatically applied to the oldest outstanding invoice(s) for that Client. When a new invoice is created, any previously unallocated client advance is applied to it. Payment amounts above all invoice balances remain unallocated as client advance. A payment can never be allocated across different clients or beyond the payment amount/invoice balance.
+
+Invoice states are derived from allocated payments and due date:
+- **Unpaid** — no amount allocated and not past due.
+- **Partially Paid** — some, but not all, of the invoice has been allocated.
+- **Paid** — allocated payments cover the full invoice amount.
+- **Overdue** — unpaid balance remains after the due date.
+- Existing Draft and Void states are preserved.
+
+The Invoice list and printable invoice show total, paid-to-date, balance due, status and the payments applied. The Payments list shows how much of each payment was allocated and how much remains as client advance. Employee visibility continues to follow both Invoice/Payment module permissions and Admin-assigned-client RLS.
+
 ## Remaining milestones
 - Invoice email delivery and client-facing invoice portal.
 - Safe Auth-user suspension.
