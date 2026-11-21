@@ -332,7 +332,7 @@ BEGIN
   PERFORM public.refresh_invoice_payment_status(NEW.id);
   RETURN NEW;
 END;
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.allocate_after_payment_insert() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.allocate_after_invoice_insert() FROM PUBLIC, anon, authenticated;
