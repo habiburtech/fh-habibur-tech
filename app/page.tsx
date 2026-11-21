@@ -13,6 +13,7 @@ type Due={client_id:string;client_name:string;total_billed_bdt:number;paid_bdt:n
 type Monthly={month:string;campaign_client_billed_bdt:number;service_revenue_bdt:number;fx_margin_bdt:number;actual_ad_cost_bdt:number;operating_expenses_bdt:number;net_profit_bdt:number};
 type Invoice={id:string;invoice_number:string;client_id:string;issue_date:string;due_date:string|null;subtotal_bdt:number;status:string;notes:string|null};
 type InvoiceItem={id:string;invoice_id:string;description:string;quantity:number;unit_price_bdt:number};
+type InvoicePaymentAllocation={id:string;invoice_id:string;payment_id:string;amount_bdt:number;created_at:string};
 type TeamMember={id:string;full_name:string|null;email:string|null;role:'admin'|'accountant'|'employee';approval_status:'pending'|'approved'|'rejected'|'suspended';created_at:string};
 type Profile={full_name:string|null;role:'admin'|'accountant'|'employee';approval_status:'pending'|'approved'|'rejected'|'suspended'};
 type ModuleKey='dashboard'|'clients'|'campaigns'|'campaign_spend'|'dollar_purchases'|'client_due'|'invoices'|'payments'|'expenses'|'reports';
@@ -47,7 +48,7 @@ const today=()=>new Date().toISOString().slice(0,10);
 export default function Home(){
  const [session,setSession]=useState<any>(null),[profile,setProfile]=useState<Profile|null>(null);
  const [clients,setClients]=useState<Client[]>([]),[campaigns,setCampaigns]=useState<Campaign[]>([]),[payments,setPayments]=useState<Payment[]>([]),[expenses,setExpenses]=useState<Expense[]>([]),[lots,setLots]=useState<Lot[]>([]),[spends,setSpends]=useState<Spend[]>([]),[dues,setDues]=useState<Due[]>([]),[monthly,setMonthly]=useState<Monthly[]>([]);
- const [invoices,setInvoices]=useState<Invoice[]>([]),[invoiceItems,setInvoiceItems]=useState<InvoiceItem[]>([]),[teamMembers,setTeamMembers]=useState<TeamMember[]>([]);
+ const [invoices,setInvoices]=useState<Invoice[]>([]),[invoiceItems,setInvoiceItems]=useState<InvoiceItem[]>([]),[invoiceAllocations,setInvoiceAllocations]=useState<InvoicePaymentAllocation[]>([]),[teamMembers,setTeamMembers]=useState<TeamMember[]>([]);
  const [clientAssignmentDrafts,setClientAssignmentDrafts]=useState<Record<string,string[]>>({}),[savedClientAssignments,setSavedClientAssignments]=useState<Record<string,string[]>>({});
  const [myModulePermissions,setMyModulePermissions]=useState<Record<ModuleKey,ModuleAccess>>({...DEFAULT_MODULE_PERMISSIONS});
  const [modulePermissionDrafts,setModulePermissionDrafts]=useState<Record<string,Record<ModuleKey,ModuleAccess>>>({});
@@ -75,7 +76,7 @@ export default function Home(){
    setTab(first?.label||'No Access');
   }
  },[loading,profile?.role,myModulePermissions]);
- useEffect(()=>{if(!supabase){setLoading(false);return;}supabase.auth.getSession().then(({data})=>{setSession(data.session);if(data.session)void load(data.session.user.id);else setLoading(false)});const {data:{subscription}}=supabase.auth.onAuthStateChange((_e,s)=>{setSession(s);if(s)void load(s.user.id);else{setProfile(null);setClients([]);setCampaigns([]);setPayments([]);setExpenses([]);setLots([]);setSpends([]);setDues([]);setMonthly([]);setInvoices([]);setInvoiceItems([]);setTeamMembers([]);setLoading(false)}});return()=>subscription.unsubscribe()},[]);
+ useEffect(()=>{if(!supabase){setLoading(false);return;}supabase.auth.getSession().then(({data})=>{setSession(data.session);if(data.session)void load(data.session.user.id);else setLoading(false)});const {data:{subscription}}=supabase.auth.onAuthStateChange((_e,s)=>{setSession(s);if(s)void load(s.user.id);else{setProfile(null);setClients([]);setCampaigns([]);setPayments([]);setExpenses([]);setLots([]);setSpends([]);setDues([]);setMonthly([]);setInvoices([]);setInvoiceItems([]);setInvoiceAllocations([]);setTeamMembers([]);setLoading(false)}});return()=>subscription.unsubscribe()},[]);
  async function load(uid:string){
   if(!supabase)return;
   setLoading(true);setError('');
@@ -85,7 +86,7 @@ export default function Home(){
   }
   setProfile(p.data as Profile);
   if(p.data.approval_status!=='approved'){
-   setClients([]);setCampaigns([]);setPayments([]);setExpenses([]);setLots([]);setSpends([]);setDues([]);setMonthly([]);setEmployeeMonthly([]);setInvoices([]);setInvoiceItems([]);setTeamMembers([]);setLoading(false);return;
+   setClients([]);setCampaigns([]);setPayments([]);setExpenses([]);setLots([]);setSpends([]);setDues([]);setMonthly([]);setEmployeeMonthly([]);setInvoices([]);setInvoiceItems([]);setInvoiceAllocations([]);setTeamMembers([]);setLoading(false);return;
   }
 
   const isFinanceRole=p.data.role==='admin'||p.data.role==='accountant';
@@ -103,7 +104,7 @@ export default function Home(){
 
   // Row Level Security returns only the module rows and assigned clients this
   // signed-in account is permitted to read.
-  const [cl,ca,pm,ex,lo,sp,due,inv,itm]=await Promise.all([
+  const [cl,ca,pm,ex,lo,sp,due,inv,itm,alloc]=await Promise.all([
    supabase.from('clients').select('*').order('created_at',{ascending:false}),
    supabase.from('campaigns').select('*').order('created_at',{ascending:false}),
    supabase.from('payments').select('*').order('payment_date',{ascending:false}),
@@ -112,7 +113,8 @@ export default function Home(){
    supabase.from('campaign_spend_entries').select('*').order('spend_date',{ascending:false}),
    supabase.from('client_due_summary').select('*').order('client_name'),
    supabase.from('invoices').select('*').order('issue_date',{ascending:false}),
-   supabase.from('invoice_items').select('*')
+   supabase.from('invoice_items').select('*'),
+   supabase.from('invoice_payment_allocations').select('*').order('created_at',{ascending:true})
   ]);
   if(cl.error)setError(cl.error.message);else setClients(cl.data||[]);
   if(ca.error)setError(ca.error.message);else setCampaigns(ca.data||[]);
@@ -123,6 +125,7 @@ export default function Home(){
   if(due.error)setError(due.error.message);else setDues(due.data||[]);
   if(inv.error)setError(inv.error.message);else setInvoices(inv.data||[]);
   if(itm.error)setError(itm.error.message);else setInvoiceItems(itm.data||[]);
+  if(alloc.error)setError('Invoice payment allocations could not be loaded: '+alloc.error.message);else setInvoiceAllocations((alloc.data||[]) as InvoicePaymentAllocation[]);
 
   if(isFinanceRole){
    const mon=await supabase.from('finance_monthly_accrual_summary').select('*').order('month',{ascending:false});
@@ -203,9 +206,21 @@ export default function Home(){
   }
   if(tab==='Payments')r=await supabase.from('payments').insert({client_id:paymentForm.client_id,amount_bdt:Number(paymentForm.amount_bdt),payment_date:paymentForm.payment_date,method:paymentForm.method,reference:paymentForm.reference||null,created_by:session.user.id});
   if(tab==='Expenses')r=await supabase.from('expenses').insert({title:expenseForm.title,category:expenseForm.category,amount_bdt:Number(expenseForm.amount_bdt),expense_date:expenseForm.expense_date,notes:expenseForm.notes||null,created_by:session.user.id});
-  if(r?.error){setError(r.error.message);return;}setNotice('Saved successfully.');setShowForm(false);if(tab==='Invoices'){setInvoiceForm({invoice_number:'',client_id:'',issue_date:today(),due_date:'',notes:''});setInvoiceLines([{description:'Campaign management service',quantity:'1',unit_price_bdt:''}]);}await load(session.user.id);
+  if(r?.error){setError(r.error.message);return;}setNotice(tab==='Payments'?'Payment saved. Available amounts were applied to the oldest open invoices first; any remainder stays as client advance.':'Saved successfully.');setShowForm(false);if(tab==='Invoices'){setInvoiceForm({invoice_number:'',client_id:'',issue_date:today(),due_date:'',notes:''});setInvoiceLines([{description:'Campaign management service',quantity:'1',unit_price_bdt:''}]);}await load(session.user.id);
  }
- const names=Object.fromEntries(clients.map(c=>[c.id,c.name]));const filtered=clients.filter(c=>(c.name+' '+(c.business_name||'')+' '+(c.phone||'')).toLowerCase().includes(search.toLowerCase()));
+ const names=Object.fromEntries(clients.map(c=>[c.id,c.name]));
+ const allocatedForInvoice=(invoiceId:string)=>invoiceAllocations.filter(a=>a.invoice_id===invoiceId).reduce((sum,a)=>sum+Number(a.amount_bdt),0);
+ const allocatedForPayment=(paymentId:string)=>invoiceAllocations.filter(a=>a.payment_id===paymentId).reduce((sum,a)=>sum+Number(a.amount_bdt),0);
+ const invoiceBalance=(invoice:Invoice)=>Math.max(Number(invoice.subtotal_bdt)-allocatedForInvoice(invoice.id),0);
+ const invoiceStatus=(invoice:Invoice)=>{
+  if(invoice.status==='draft'||invoice.status==='void')return invoice.status;
+  const paid=allocatedForInvoice(invoice.id);
+  if(Number(invoice.subtotal_bdt)>0&&paid>=Number(invoice.subtotal_bdt)-0.009)return 'paid';
+  if(paid>0)return 'partially_paid';
+  if(invoice.due_date&&invoice.due_date<today())return 'overdue';
+  return 'unpaid';
+ };
+ const filtered=clients.filter(c=>(c.name+' '+(c.business_name||'')+' '+(c.phone||'')).toLowerCase().includes(search.toLowerCase()));
  const totals=useMemo(()=>({budget:campaigns.reduce((s,x)=>s+Number(x.budget_usd),0),spent:spends.reduce((s,x)=>s+Number(x.amount_usd),0),received:payments.reduce((s,x)=>s+Number(x.amount_bdt),0),expenses:expenses.reduce((s,x)=>s+Number(x.amount_bdt),0),wallet:lots.reduce((s,x)=>s+Number(x.remaining_usd),0),billed:dues.reduce((s,x)=>s+Number(x.total_billed_bdt),0),due:dues.reduce((s,x)=>s+Number(x.due_bdt),0),profit:monthly.reduce((s,x)=>s+Number(x.net_profit_bdt),0)}),[campaigns,spends,payments,expenses,lots,dues,monthly]);
  const nav=[['Dashboard',LayoutDashboard],['Clients',Users],['Campaigns',Megaphone],['Campaign Spend',TrendingDown],['Dollar Purchases',Coins],['Client Due',FileBarChart],['Invoices',FileText],['Payments',Wallet],['Expenses',Receipt],['Reports',ChartNoAxesCombined],['Team Access',UserCog]] as const;
  const canAdd=MODULE_KEY_BY_LABEL[tab]?canManage(MODULE_KEY_BY_LABEL[tab]):false;
