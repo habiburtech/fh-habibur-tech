@@ -86,6 +86,10 @@ Default Employee access is Dashboard/View, Clients/View, Campaigns/Manage, Campa
 
 After both the migration and app deployment are active, open **Team Access** as Admin. Under each Employee, first save Client assignments, then select the required permission for each module and press **Save module permissions**. The Employee should refresh or sign in again to see the updated menu. Accountants retain their existing Finance-role access; Team Access remains Admin-only.
 
+## Automatic invoice numbering
+
+Run `supabase/migrations/20261121_automatic_invoice_numbering.sql` once after the invoice and finance schema migrations. New invoices receive a database-generated unique number in the format `FHT-YYYY-00001`, based on the invoice issue year. Number allocation is concurrency-safe, the numbering counter is not directly accessible to signed-in users, and the database unique constraint remains the final duplicate guard. Existing valid invoice numbers are preserved; only obvious placeholder values such as `Invoice Number` are backfilled to generated numbers. The app no longer asks staff to type invoice numbers.
+
 ## Invoice payment allocation and automatic status
 
 Run `supabase/migrations/20261121_invoice_payment_allocation.sql` once **after** the Employee module-permissions migration. It creates the invoice-payment allocation ledger and backfills existing client payments into that client's oldest open invoices (FIFO). Existing payments and invoices are preserved.
