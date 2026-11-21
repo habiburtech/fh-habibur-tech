@@ -37,6 +37,7 @@ CREATE POLICY "invoice allocations read permitted"
   FOR SELECT TO authenticated
   USING (
     public.has_module_access('invoices','view')
+    AND public.has_module_access('payments','view')
     AND EXISTS (
       SELECT 1
       FROM public.invoices i
@@ -127,10 +128,10 @@ BEGIN
     v_status := v_current_status;
   ELSIF v_subtotal > 0 AND v_paid >= v_subtotal THEN
     v_status := 'paid';
-  ELSIF v_paid > 0 THEN
-    v_status := 'partially_paid';
   ELSIF v_due_date IS NOT NULL AND v_due_date < ((now() AT TIME ZONE 'Asia/Dhaka')::date) THEN
     v_status := 'overdue';
+  ELSIF v_paid > 0 THEN
+    v_status := 'partially_paid';
   ELSE
     v_status := 'unpaid';
   END IF;
@@ -369,12 +370,12 @@ SET status = CASE
       FROM public.invoice_payment_allocations a
       WHERE a.invoice_id = i.id
     ),0) >= i.subtotal_bdt THEN 'paid'
+  WHEN i.due_date IS NOT NULL AND i.due_date < ((now() AT TIME ZONE 'Asia/Dhaka')::date) THEN 'overdue'
   WHEN COALESCE((
       SELECT SUM(a.amount_bdt)
       FROM public.invoice_payment_allocations a
       WHERE a.invoice_id = i.id
     ),0) > 0 THEN 'partially_paid'
-  WHEN i.due_date IS NOT NULL AND i.due_date < ((now() AT TIME ZONE 'Asia/Dhaka')::date) THEN 'overdue'
   ELSE 'unpaid'
 END;
 
