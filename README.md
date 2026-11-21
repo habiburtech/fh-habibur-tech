@@ -51,11 +51,11 @@ where id=(select id from auth.users where email='ACCOUNTANT_EMAIL');
 - Store the USD/BDT exchange rate per campaign/transaction so historical conversions do not shift when rates change.
 - Record client collections in BDT.
 - Ads budget is not agency revenue. Separate ad spend, agency service fees and operating expenses.
-- The basic starter schema alone does not calculate reconciled invoice payment status or net profit. Install the additive invoice-payment and v3 finance migrations described below before relying on those reports. Do not treat collections as profit.
+- The basic starter schema alone does not calculate reconciled invoice payment status or net profit. Install the additive invoice-payment and v3 finance migrations described below before relying on those reports. Do not treat collections as profit. The Monthly Campaign Accrual report currently includes Campaign Spend service charges and FX margin less operating expenses; manual Invoice totals are not included in profit because their line items have not yet been classified as agency revenue or client pass-through.
 
 ## Invoice and team access update
 
-The current app includes an itemized BDT invoice screen. Finance users can create invoices with line items, view saved invoices, and print or save an invoice as PDF from the browser print dialog. Invoice totals feed the existing client due summary. The app does not send invoice emails automatically; download/print the PDF and send it through your normal email or WhatsApp workflow.
+The current app includes an itemized BDT invoice screen. Finance users can create invoices with line items, view saved invoices, and print or save an invoice as PDF from the browser print dialog. Client Due is calculated from RLS-filtered Campaign Spend, issued Invoices (Draft and Void are excluded), and all recorded Client Payments. The app does not send invoice emails automatically; download/print the PDF and send it through your normal email or WhatsApp workflow.
 
 The Admin-only Team Access screen lists registered accounts and lets an Admin assign the `employee`, `accountant` or `admin` role. Staff must first create their own account from the login screen; new accounts default to Employee. Role changes are applied after the user signs out and signs in again. This screen does not send invitation emails or suspend Auth accounts.
 
@@ -94,7 +94,7 @@ Run `supabase/migrations/20261121_automatic_invoice_numbering.sql` once after th
 
 Run `supabase/migrations/20261121_invoice_payment_allocation.sql` once **after** the Employee module-permissions migration. It creates the invoice-payment allocation ledger and backfills existing client payments into that client's oldest open invoices (FIFO). Existing payments and invoices are preserved.
 
-When a new payment is recorded, it is automatically applied to the oldest outstanding invoice(s) for that Client. When a new invoice is created, any previously unallocated client advance is applied to it. Payment amounts above all invoice balances remain unallocated as client advance. A payment can never be allocated across different clients or beyond the payment amount/invoice balance.
+When a new payment is recorded, it is automatically applied to the oldest outstanding invoice(s) for that Client. When a new invoice is created, any previously unallocated payment amount is applied to it. Payment amounts above all invoice balances remain unallocated to an invoice. All recorded payments still reduce the client's overall Client Due balance. A payment can never be allocated across different clients or beyond the payment amount/invoice balance.
 
 Invoice states are derived from allocated payments and due date:
 - **Unpaid** — no amount allocated and not past due.
