@@ -51,11 +51,11 @@ where id=(select id from auth.users where email='ACCOUNTANT_EMAIL');
 - Store the USD/BDT exchange rate per campaign/transaction so historical conversions do not shift when rates change.
 - Record client collections in BDT.
 - Ads budget is not agency revenue. Separate ad spend, agency service fees and operating expenses.
-- The basic starter schema alone does not calculate reconciled invoice payment status or net profit. Install the additive invoice-payment and v3 finance migrations described below before relying on those reports. Do not treat collections as profit. The Monthly Campaign Accrual report currently includes Campaign Spend service charges and FX margin less operating expenses; manual Invoice totals are not included in profit because their line items have not yet been classified as agency revenue or client pass-through.
+- The basic starter schema alone does not calculate reconciled invoice payment status or net profit. Install the additive invoice-payment and v3 finance migrations described below before relying on those reports. Do not treat collections as profit. The Monthly Campaign Accrual report includes Campaign Spend service charges and FX margin less operating expenses. Invoices are formal documents for the same Campaign Spend bill, not additional revenue, and are not added again to profit.
 
 ## Invoice and team access update
 
-The current app includes an itemized BDT invoice screen. Finance users can create invoices with line items, view saved invoices, and print or save an invoice as PDF from the browser print dialog. Client Due is calculated from RLS-filtered Campaign Spend, issued Invoices (Draft and Void are excluded), and all recorded Client Payments. The app does not send invoice emails automatically; download/print the PDF and send it through your normal email or WhatsApp workflow.
+The current app includes an itemized BDT invoice screen. Finance users can create invoices with line items, view saved invoices, and print or save an invoice as PDF from the browser print dialog. An Invoice is the formal document for the same Campaign Spend bill, not a second charge. Client Due uses the greater of the RLS-filtered Campaign Spend bill total and issued Invoice total per client (Draft and Void invoices are excluded), so the same bill is never added twice. This also preserves legacy invoice balances where old Campaign Spend ledger rows are unavailable. All recorded Client Payments reduce the overall Client Due balance. The app does not send invoice emails automatically; download/print the PDF and send it through your normal email or WhatsApp workflow.
 
 The Admin-only Team Access screen lists registered accounts and lets an Admin assign the `employee`, `accountant` or `admin` role. Staff must first create their own account from the login screen; new accounts default to Employee. Role changes are applied after the user signs out and signs in again. This screen does not send invitation emails or suspend Auth accounts.
 
@@ -103,7 +103,7 @@ Invoice states are derived from allocated payments and due date:
 - **Overdue** — unpaid balance remains after the due date.
 - Existing Draft and Void states are preserved.
 
-The Invoice list and printable invoice show total, paid-to-date, balance due, status and the payments applied. The Payments list shows how much of each payment was allocated and how much remains as client advance. Employee visibility continues to follow both Invoice/Payment module permissions and Admin-assigned-client RLS.
+The Invoice list and printable invoice show total, paid-to-date, balance due, status and the payments applied. The Payments list shows how much of each payment was allocated and how much remains unallocated to an invoice; that remainder is not automatically a client-level advance because it may still offset Campaign Spend charges. Employee visibility continues to follow both Invoice/Payment module permissions and Admin-assigned-client RLS.
 
 ## Remaining milestones
 - Invoice email delivery and client-facing invoice portal.
