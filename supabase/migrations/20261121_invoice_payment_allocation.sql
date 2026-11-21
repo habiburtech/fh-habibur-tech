@@ -329,9 +329,10 @@ SET search_path = public
 AS $$
 BEGIN
   PERFORM public.allocate_client_payments_fifo(NEW.client_id);
+  PERFORM public.refresh_invoice_payment_status(NEW.id);
   RETURN NEW;
 END;
-$$;
+$;
 
 REVOKE ALL ON FUNCTION public.allocate_after_payment_insert() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.allocate_after_invoice_insert() FROM PUBLIC, anon, authenticated;
@@ -343,7 +344,7 @@ FOR EACH ROW EXECUTE FUNCTION public.allocate_after_payment_insert();
 
 DROP TRIGGER IF EXISTS trg_allocate_payment_after_invoice_insert ON public.invoices;
 CREATE TRIGGER trg_allocate_payment_after_invoice_insert
-AFTER INSERT OR UPDATE OF client_id, subtotal_bdt ON public.invoices
+AFTER INSERT OR UPDATE OF client_id, subtotal_bdt, due_date ON public.invoices
 FOR EACH ROW EXECUTE FUNCTION public.allocate_after_invoice_insert();
 
 -- Refresh existing invoice statuses and backfill historical payments.
