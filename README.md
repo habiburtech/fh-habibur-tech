@@ -86,6 +86,12 @@ Default Employee access is Dashboard/View, Clients/View, Campaigns/Manage, Campa
 
 After both the migration and app deployment are active, open **Team Access** as Admin. Under each Employee, first save Client assignments, then select the required permission for each module and press **Save module permissions**. The Employee should refresh or sign in again to see the updated menu. Accountants retain their existing Finance-role access; Team Access remains Admin-only.
 
+## Safely voiding an incorrect invoice
+
+Finance Admins and Accountants can use the **Void** action in the Invoice list for an incorrect invoice. Voiding does not delete the invoice or the original client payment. In one database transaction, the invoice is marked `void`, its payment allocations are released, and available payments are automatically reapplied FIFO to other open invoices for that same client. If no valid invoice remains, the payment stays unallocated to an invoice but still reduces the client's overall Client Due balance.
+
+Before using the Void action, run `supabase/migrations/20261122_safe_invoice_void.sql` once in Supabase SQL Editor, after the invoice-payment-allocation migration. The operation is restricted to approved Admin and Accountant accounts. Void invoices are excluded from Client Due.
+
 ## Automatic invoice numbering
 
 Run `supabase/migrations/20261121_automatic_invoice_numbering.sql` once after the invoice and finance schema migrations. New invoices receive a database-generated unique number in the format `FHT-YYYY-00001`, based on the invoice issue year. Number allocation is concurrency-safe, the numbering counter is not directly accessible to signed-in users, and the database unique constraint remains the final duplicate guard. Existing valid invoice numbers are preserved; only obvious placeholder values such as `Invoice Number` are backfilled to generated numbers. The app no longer asks staff to type invoice numbers.
