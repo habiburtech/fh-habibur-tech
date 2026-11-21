@@ -51,7 +51,7 @@ where id=(select id from auth.users where email='ACCOUNTANT_EMAIL');
 - Store the USD/BDT exchange rate per campaign/transaction so historical conversions do not shift when rates change.
 - Record client collections in BDT.
 - Ads budget is not agency revenue. Separate ad spend, agency service fees and operating expenses.
-- This starter does not yet calculate invoice-based due balances or reconciled net profit. Do not treat collections as profit.
+- The basic starter schema alone does not calculate reconciled invoice payment status or net profit. Install the additive invoice-payment and v3 finance migrations described below before relying on those reports. Do not treat collections as profit.
 
 ## Invoice and team access update
 
