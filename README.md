@@ -94,6 +94,12 @@ The app displays each Client ID in the Clients list. The global Client ID search
 
 USD purchase lots are shared company wallet records and are not assigned to a single client. The Client Summary therefore reports client-linked USD Campaign Spend, not the full company-wide purchase amount.
 
+## Editing a Client Payment amount
+
+Approved Finance users can select **Edit Amount** on a Payment row. The amount is updated atomically while its Client, payment date, method, reference and original payment record remain unchanged. The database releases and rebuilds invoice allocations for that Client in FIFO order, recalculates invoice statuses, and writes the old/new amount to `audit_logs`. Client Due updates from the new payment amount.
+
+Run `supabase/migrations/20261124_edit_payment_amount.sql` once before using this action.
+
 ## Correcting a Payment assigned to the wrong Client
 
 Approved Finance users can choose **Correct Client** on a Payment row. The correction changes only the payment's client association. It preserves the original payment amount, date, method, reference, notes, and payment record. In one database transaction, allocations on the payment are released, the payment is moved to the selected Client, and FIFO allocations are recalculated for both the old and new Client. The operation is logged in `audit_logs`.
