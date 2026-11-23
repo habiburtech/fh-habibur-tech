@@ -94,6 +94,12 @@ The app displays each Client ID in the Clients list. The global Client ID search
 
 USD purchase lots are shared company wallet records and are not assigned to a single client. The Client Summary therefore reports client-linked USD Campaign Spend, not the full company-wide purchase amount.
 
+## Correcting a Payment assigned to the wrong Client
+
+Approved Finance users can choose **Correct Client** on a Payment row. The correction changes only the payment's client association. It preserves the original payment amount, date, method, reference, notes, and payment record. In one database transaction, allocations on the payment are released, the payment is moved to the selected Client, and FIFO allocations are recalculated for both the old and new Client. The operation is logged in `audit_logs`.
+
+Run `supabase/migrations/20261124_correct_payment_client.sql` once before using the correction action. The function is restricted to approved Admin/Accountant accounts. No other payment or invoice rows are deleted.
+
 ## Safely voiding an incorrect invoice
 
 Finance Admins and Accountants can use the **Void** action in the Invoice list for an incorrect invoice. Voiding does not delete the invoice or the original client payment. In one database transaction, the invoice is marked `void`, its payment allocations are released, and available payments are automatically reapplied FIFO to other open invoices for that same client. If no valid invoice remains, the payment stays unallocated to an invoice but still reduces the client's overall Client Due balance.
