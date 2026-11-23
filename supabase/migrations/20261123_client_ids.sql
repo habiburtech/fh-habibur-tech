@@ -72,8 +72,15 @@ $$;
 REVOKE ALL ON FUNCTION public.assign_client_code_before_insert() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS trg_assign_client_code_before_insert ON public.clients;
+DROP TRIGGER IF EXISTS trg_client_code_immutable ON public.clients;
+
 CREATE TRIGGER trg_assign_client_code_before_insert
-BEFORE INSERT OR UPDATE OF client_code ON public.clients
+BEFORE INSERT ON public.clients
+FOR EACH ROW
+EXECUTE FUNCTION public.assign_client_code_before_insert();
+
+CREATE TRIGGER trg_client_code_immutable
+BEFORE UPDATE OF client_code ON public.clients
 FOR EACH ROW
 EXECUTE FUNCTION public.assign_client_code_before_insert();
 
