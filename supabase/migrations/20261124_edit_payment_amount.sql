@@ -34,21 +34,17 @@ BEGIN
 
   v_new_amount := round(p_new_amount_bdt, 2);
 
-  SELECT p.client_id, p.amount_bdt
-    INTO v_client_id, v_old_amount
+  -- Read the Client first, then lock this Client's invoices and payments
+  -- in a stable order before locking/validating the target Payment amount.
+  SELECT p.client_id
+    INTO v_client_id
   FROM public.payments p
-  WHERE p.id = p_payment_id
-  FOR UPDATE;
+  WHERE p.id = p_payment_id;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Payment not found.';
   END IF;
 
-  IF v_new_amount = v_old_amount THEN
-    RAISE EXCEPTION 'The new amount is the same as the current amount.';
-  END IF;
-
-  -- Lock this Client's invoices and payments while recalculating allocations.
   PERFORM 1
   FROM public.invoices i
   WHERE i.client_id = v_client_id
@@ -60,6 +56,21 @@ BEGIN
   WHERE p.client_id = v_client_id
   ORDER BY p.id
   FOR UPDATE;
+
+  SELECT p.amount_bdt
+    INTO v_old_amount
+  FROM public.payments p
+  WHERE p.id = p_payment_id
+    AND p.client_id = v_client_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Payment Client changed during correction. Reload and try again.';
+  END IF;
+
+  IF v_new_amount = v_old_amount THEN
+    RAISE EXCEPTION 'The new amount is the same as the current amount.';
+  END IF;
 
   -- Release all allocations for this Client so the full payment set can be
   -- rebuilt in strict payment-date FIFO order against oldest open invoices.
