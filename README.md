@@ -86,6 +86,14 @@ Default Employee access is Dashboard/View, Clients/View, Campaigns/Manage, Campa
 
 After both the migration and app deployment are active, open **Team Access** as Admin. Under each Employee, first save Client assignments, then select the required permission for each module and press **Save module permissions**. The Employee should refresh or sign in again to see the updated menu. Accountants retain their existing Finance-role access; Team Access remains Admin-only.
 
+## Permanent Client IDs and Client Summary Search
+
+Run `supabase/migrations/20261123_client_ids.sql` once in Supabase SQL Editor. It backfills a permanent unique Client ID in the format `FHT-CL-00001` for existing clients and automatically assigns one to every new client. Existing financial records are not changed.
+
+The app displays each Client ID in the Clients list. The global Client ID search in the top bar is available from the workspace pages; submitting an ID opens the matching Client Summary. The summary shows the permitted Campaigns, Campaign Spend USD usage, Payments, Invoices, and current Client Due/Advance. All figures are derived from rows the signed-in user is allowed to access through existing RLS and module permissions.
+
+USD purchase lots are shared company wallet records and are not assigned to a single client. The Client Summary therefore reports client-linked USD Campaign Spend, not the full company-wide purchase amount.
+
 ## Safely voiding an incorrect invoice
 
 Finance Admins and Accountants can use the **Void** action in the Invoice list for an incorrect invoice. Voiding does not delete the invoice or the original client payment. In one database transaction, the invoice is marked `void`, its payment allocations are released, and available payments are automatically reapplied FIFO to other open invoices for that same client. If no valid invoice remains, the payment stays unallocated to an invoice but still reduces the client's overall Client Due balance.
