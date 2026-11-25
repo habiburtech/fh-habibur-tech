@@ -78,3 +78,6 @@
 .client-detail-section h3{font-size:13px;margin:0 0 10px}
 @media(max-width:900px){.header-actions{gap:6px}.client-id-search input{width:125px;min-width:90px}.header-actions .pill{display:none}}
 @media(max-width:600px){.header-actions{flex:1;justify-content:flex-end}.client-id-search{max-width:190px}.client-id-search input{width:90px;min-width:60px}.client-id-search button{padding:7px 8px}}
+
+.danger-text{color:#dc2626!important}
+.danger-text:disabled{opacity:.55;cursor:not-allowed}
