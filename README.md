@@ -94,6 +94,12 @@ The app displays each Client ID in the Clients list. The global Client ID search
 
 USD purchase lots are shared company wallet records and are not assigned to a single client. The Client Summary therefore reports client-linked USD Campaign Spend, not the full company-wide purchase amount.
 
+## Deleting an incorrect Campaign Spend entry
+
+Approved Finance users can select **Delete** on one Campaign Spend row. The operation runs through the `delete_campaign_spend(uuid)` database function in a single transaction: it restores the exact USD amount to the original Dollar Purchase Lot, subtracts that USD from the Campaign's stored `spent_usd` total, removes only the selected spend row, and records the deleted row details in `audit_logs`. It stops without changing data if the Campaign total or Dollar Lot balance fails a safety check.
+
+Run `supabase/migrations/20261125_delete_campaign_spend.sql` once before using the Delete action. Other Campaign Spends, Dollar Purchases, Payments, Invoices and Clients are not deleted. Client Due can change because the deleted spend's client bill is no longer in the spend ledger; any existing Invoice remains unchanged.
+
 ## Editing a Client Payment amount
 
 Approved Finance users can select **Edit Amount** on a Payment row. The amount is updated atomically while its Client, payment date, method, reference and original payment record remain unchanged. The database releases and rebuilds invoice allocations for that Client in FIFO order, recalculates invoice statuses, and writes the old/new amount to `audit_logs`. Client Due updates from the new payment amount.
